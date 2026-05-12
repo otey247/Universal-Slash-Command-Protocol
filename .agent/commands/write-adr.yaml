@@ -1,0 +1,145 @@
+schema: "https://universal-slash.dev/schemas/command.v1.json"
+id: "org.uscp.write-adr"
+name: "write-adr"
+version: "1.0.0"
+
+title: "Write Architecture Decision Record"
+description: "Creates a well-structured ADR documenting an architectural decision."
+
+aliases:
+  - "adr"
+  - "create-adr"
+
+examples:
+  - '/write-adr "Use MCP for tool integration"'
+  - '/write-adr "Migrate from REST to GraphQL" --status proposed --supersedes ADR-003'
+  - '/write-adr "Adopt event sourcing for order service" --status accepted'
+
+compatibility:
+  tools:
+    - claude-code
+    - codex-cli
+    - github-copilot
+    - cursor
+    - windsurf
+    - kiro
+    - any-mcp
+
+arguments:
+  type: object
+  required:
+    - title
+  properties:
+    title:
+      type: string
+      description: "Short imperative sentence describing the decision (e.g. 'Use MCP for tool integration')."
+    status:
+      type: string
+      enum: ["proposed", "accepted", "deprecated", "superseded"]
+      default: "proposed"
+      description: "Current status of the decision."
+    supersedes:
+      type: string
+      description: "ADR ID that this decision supersedes (e.g. 'ADR-003')."
+      examples:
+        - "ADR-003"
+        - "0005"
+    format:
+      type: string
+      enum: ["nygard", "madr", "y-statements"]
+      default: "madr"
+      description: "ADR template format to use."
+
+context:
+  required:
+    - repository
+  optional:
+    - architecture_docs
+    - project_instructions
+    - open_files
+
+permissions:
+  filesystem:
+    read:
+      - "docs/**"
+      - "adr/**"
+      - "decisions/**"
+      - "architecture/**"
+      - "README.md"
+    write:
+      - "docs/adr/**"
+      - "adr/**"
+      - "decisions/**"
+  shell:
+    allowed: []
+    denied:
+      - "rm"
+      - "curl"
+      - "ssh"
+  network:
+    allowed: false
+  secrets:
+    access: false
+
+capabilities:
+  needs:
+    - "filesystem.read"
+    - "filesystem.write"
+  optional:
+    - "mcp.tool.invoke"
+
+execution:
+  mode: "apply-patch"
+  autonomy: "supervised"
+  requires_confirmation_for:
+    - file_write
+  timeout_seconds: 120
+
+workflow:
+  steps:
+    - id: "discover-existing"
+      instruction: >
+        Scan the repository for an existing ADR directory (docs/adr/, adr/, decisions/).
+        List existing ADRs to determine the next sequential number and understand
+        conventions already in use (naming, formatting, cross-references).
+    - id: "gather-context"
+      instruction: >
+        Review open files, architecture docs, and project instructions to understand the
+        technical context relevant to this decision. Identify alternatives that were
+        likely considered, the forces at play, and consequences of the decision.
+    - id: "draft"
+      instruction: >
+        Write the ADR using the requested format. Include: title, date, status, context,
+        decision, consequences (positive and negative), and alternatives considered.
+        If supersedes is provided, add a cross-reference and update the superseded ADR's status.
+    - id: "save"
+      instruction: >
+        Save the ADR to the appropriate directory with the next sequential number.
+        Use the filename convention already established in the project
+        (e.g., 0006-use-mcp-for-tool-integration.md or ADR-006-use-mcp.md).
+
+output:
+  format: "markdown"
+  sections:
+    - "ADR Content"
+    - "File Location"
+    - "Cross-References"
+  machine_readable:
+    type: object
+    properties:
+      adr_number:
+        type: string
+      file_path:
+        type: string
+      status:
+        type: string
+      supersedes:
+        type: string
+
+mcp:
+  prompt: "org.uscp.write-adr"
+  resources:
+    - "repo://current"
+  tools:
+    - "filesystem.read"
+    - "filesystem.write"

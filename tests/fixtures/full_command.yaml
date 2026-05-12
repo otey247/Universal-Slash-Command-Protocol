@@ -1,0 +1,141 @@
+schema: "https://universal-slash.dev/schemas/command.v1.json"
+id: "org.uscp.full-command"
+name: "full-command"
+version: "2.1.0"
+title: "Full Feature Command"
+description: "Exercises every optional field in the USCP schema."
+
+aliases:
+  - "fc"
+  - "full"
+
+examples:
+  - "/full-command src/ --mode deep"
+  - "/full-command . --mode shallow --output json"
+
+compatibility:
+  tools:
+    - claude-code
+    - codex-cli
+    - github-copilot
+    - cursor
+  requires:
+    mcp: ">=2025-06-18"
+
+arguments:
+  type: object
+  required:
+    - scope
+  properties:
+    scope:
+      type: string
+      description: "Target directory or glob pattern."
+      examples:
+        - "src/"
+        - "**/*.py"
+    mode:
+      type: string
+      enum: ["deep", "shallow"]
+      default: "deep"
+      description: "Analysis depth."
+    output:
+      type: string
+      enum: ["markdown", "json"]
+      default: "markdown"
+      description: "Output format."
+
+context:
+  required:
+    - repository
+    - git_diff
+  optional:
+    - open_files
+    - diagnostics
+    - test_results
+    - project_instructions
+
+permissions:
+  filesystem:
+    read:
+      - "${args.scope}"
+      - "docs/**"
+    write:
+      - "reports/**"
+  shell:
+    allowed:
+      - "pytest"
+    denied:
+      - "rm"
+      - "curl"
+  network:
+    allowed: false
+  secrets:
+    access: false
+  tools:
+    allowed:
+      - "mcp.filesystem.read"
+      - "mcp.git.diff"
+
+capabilities:
+  needs:
+    - "filesystem.read"
+    - "git.diff"
+  optional:
+    - "tests.run"
+
+execution:
+  mode: "propose-patch"
+  autonomy: "supervised"
+  requires_confirmation_for:
+    - file_write
+    - shell_command
+  timeout_seconds: 600
+
+workflow:
+  steps:
+    - id: "discover"
+      instruction: "Discover relevant files."
+    - id: "analyze"
+      instruction: "Analyze discovered files."
+      condition: "args.mode == 'deep'"
+    - id: "report"
+      instruction: "Produce the final report."
+
+output:
+  format: "markdown"
+  sections:
+    - "Summary"
+    - "Findings"
+    - "Recommendations"
+  machine_readable:
+    type: object
+    properties:
+      findings:
+        type: array
+        items:
+          type: object
+
+mcp:
+  prompt: "org.uscp.full-command"
+  resources:
+    - "repo://current"
+    - "git://diff"
+  tools:
+    - "filesystem.read"
+    - "git.diff"
+
+policies:
+  permissions: ".agent/policies/permissions.yaml"
+  security: ".agent/policies/security-baseline.yaml"
+
+telemetry:
+  enabled: true
+  events:
+    - "command.start"
+    - "command.complete"
+    - "command.error"
+
+lifecycle_hooks:
+  pre_execute: "validate_scope"
+  post_execute: "emit_telemetry"
+  on_error: "log_error"

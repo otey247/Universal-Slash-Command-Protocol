@@ -1,0 +1,47 @@
+# USCP Organization Coding Standards
+# Referenced by commands that review or generate code.
+
+version: "1.0.0"
+
+languages:
+  python:
+    style_guide: "PEP 8"
+    type_hints: required
+    docstrings: "Google style"
+    min_test_coverage: 80
+    linters:
+      - ruff
+      - mypy
+  typescript:
+    style_guide: "Airbnb"
+    strict_mode: true
+    min_test_coverage: 80
+    linters:
+      - eslint
+      - tsc
+  go:
+    style_guide: "Effective Go"
+    min_test_coverage: 80
+    linters:
+      - golangci-lint
+
+api_design:
+  versioning: "URL path versioning (e.g., /v1/)"
+  error_format: "RFC 7807 Problem Details"
+  pagination: "cursor-based"
+  auth: "OAuth 2.0 / OIDC"
+
+testing:
+  strategy: "testing-pyramid"
+  unit_ratio: 70
+  integration_ratio: 20
+  e2e_ratio: 10
+  naming: "describe/it or test_<subject>_<condition>_<expected>"
+
+security:
+  input_validation: required
+  output_encoding: required
+  auth_on_all_endpoints: required
+  rate_limiting: required
+  dependency_scanning: required
+  sast: required

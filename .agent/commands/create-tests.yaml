@@ -1,0 +1,171 @@
+schema: "https://universal-slash.dev/schemas/command.v1.json"
+id: "org.uscp.create-tests"
+name: "create-tests"
+version: "1.0.0"
+
+title: "Generate Tests"
+description: "Generates comprehensive tests for a target module or component."
+
+aliases:
+  - "gen-tests"
+  - "write-tests"
+
+examples:
+  - "/create-tests src/services/payment"
+  - "/create-tests src/payment --framework pytest --coverage target"
+  - "/create-tests src/api/users.py --framework jest --type unit,integration"
+
+compatibility:
+  tools:
+    - claude-code
+    - codex-cli
+    - github-copilot
+    - cursor
+    - windsurf
+    - kiro
+    - any-mcp
+
+arguments:
+  type: object
+  required:
+    - scope
+  properties:
+    scope:
+      type: string
+      description: "File, folder, or glob pattern identifying the code to test."
+      examples:
+        - "src/services/payment"
+        - "src/api/users.py"
+    framework:
+      type: string
+      enum: ["pytest", "jest", "vitest", "go-test", "rspec", "junit", "xunit", "mocha"]
+      description: "Test framework to use. Auto-detected from project if omitted."
+    type:
+      type: string
+      description: "Comma-separated list of test types to generate."
+      default: "unit"
+      examples:
+        - "unit"
+        - "unit,integration"
+        - "unit,integration,e2e"
+    coverage:
+      type: string
+      enum: ["target", "full", "edge-cases-only"]
+      default: "target"
+      description: "Coverage strategy — 'target' focuses on uncovered paths."
+
+context:
+  required:
+    - repository
+  optional:
+    - open_files
+    - diagnostics
+    - test_results
+    - project_instructions
+
+permissions:
+  filesystem:
+    read:
+      - "${args.scope}"
+      - "tests/**"
+      - "test/**"
+      - "spec/**"
+      - "pytest.ini"
+      - "jest.config.*"
+      - "package.json"
+    write:
+      - "tests/**"
+      - "test/**"
+      - "spec/**"
+  shell:
+    allowed:
+      - "pytest"
+      - "jest"
+      - "vitest"
+      - "go test"
+      - "npm test"
+      - "yarn test"
+    denied:
+      - "rm"
+      - "curl"
+      - "ssh"
+  network:
+    allowed: false
+  secrets:
+    access: false
+
+capabilities:
+  needs:
+    - "filesystem.read"
+    - "filesystem.write"
+  optional:
+    - "tests.run"
+    - "diagnostics.read"
+    - "mcp.tool.invoke"
+
+execution:
+  mode: "apply-patch"
+  autonomy: "supervised"
+  requires_confirmation_for:
+    - file_write
+    - shell_command
+  timeout_seconds: 300
+
+workflow:
+  steps:
+    - id: "inspect"
+      instruction: >
+        Inspect the target code identified by the scope argument. Understand its public API,
+        business logic, dependencies, error handling, and edge cases. Check the existing test
+        files to understand naming conventions, fixtures, and patterns already in use.
+    - id: "detect-framework"
+      instruction: >
+        If no framework argument was given, auto-detect the test framework from config files
+        (pytest.ini, jest.config.js, vitest.config.ts, go.mod, package.json, etc.).
+    - id: "plan"
+      instruction: >
+        Plan the tests: identify happy paths, error paths, boundary conditions, and
+        integration points. For coverage='target', focus on uncovered code paths visible
+        in diagnostics or test_results context.
+    - id: "generate"
+      instruction: >
+        Generate the test files following the detected or specified framework conventions.
+        Place tests in the appropriate directory mirroring the source structure.
+        Include docstrings/comments explaining what each test validates.
+    - id: "verify"
+      instruction: >
+        If shell execution is available, run the newly generated tests and report results.
+        Fix any immediate failures caused by the generated test code itself (not the source).
+
+output:
+  format: "markdown"
+  sections:
+    - "Test Plan"
+    - "Generated Files"
+    - "Coverage Analysis"
+    - "Run Results"
+  machine_readable:
+    type: object
+    properties:
+      generated_files:
+        type: array
+        items:
+          type: object
+          properties:
+            path:
+              type: string
+            test_count:
+              type: integer
+            framework:
+              type: string
+      coverage_estimate:
+        type: string
+
+mcp:
+  prompt: "org.uscp.create-tests"
+  resources:
+    - "repo://current"
+  tools:
+    - "filesystem.read"
+    - "filesystem.write"
+    - "tests.run"
