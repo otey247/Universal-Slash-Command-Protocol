@@ -16,7 +16,7 @@ REPO_ROOT = pathlib.Path(__file__).parent.parent
 
 @pytest.fixture()
 def runner():
-    return CliRunner()
+    return CliRunner(mix_stderr=False)
 
 
 @pytest.fixture()
@@ -75,6 +75,16 @@ class TestListCommand:
         assert result.exit_code == 0
         assert "review-api" in result.output
         assert "create-tests" in result.output
+
+    def test_list_prints_discovery_warnings_for_bad_yaml(self, runner, tmp_path):
+        cmd_dir = tmp_path / ".agent" / "commands"
+        cmd_dir.mkdir(parents=True)
+        (cmd_dir / "broken.yaml").write_text("name: [unterminated\n", encoding="utf-8")
+
+        result = runner.invoke(main, ["list", "--root", str(tmp_path)])
+
+        assert result.exit_code == 0
+        assert "Warning:" in result.stderr
 
 
 class TestCompileCommand:
@@ -181,3 +191,16 @@ class TestShowCommand:
             ["show", "nonexistent", "--root", str(tmp_path)],
         )
         assert result.exit_code != 0
+
+    def test_show_invalid_manifest_fails_gracefully(self, runner, tmp_path):
+        cmd_dir = tmp_path / ".agent" / "commands"
+        cmd_dir.mkdir(parents=True)
+        (cmd_dir / "bad.yaml").write_text(
+            "name: bad\nversion: 1.0.0\ndescription: broken\nworkflow:\n  steps:\n    - {}\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(main, ["show", "bad", "--root", str(tmp_path)])
+
+        assert result.exit_code != 0
+        assert "Command manifest is invalid" in result.stderr

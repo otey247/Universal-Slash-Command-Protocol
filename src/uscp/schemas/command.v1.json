@@ -1,0 +1,366 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://universal-slash.dev/schemas/command.v1.json",
+  "title": "Universal Slash Command Protocol — Command Manifest v1",
+  "description": "Declarative workflow specification for a portable slash command.",
+  "type": "object",
+  "required": ["schema", "id", "name", "version", "description", "arguments", "context", "permissions", "workflow", "output"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "description": "URI of the USCP schema used to validate this manifest.",
+      "const": "https://universal-slash.dev/schemas/command.v1.json"
+    },
+    "id": {
+      "type": "string",
+      "description": "Reverse-domain-name unique command identifier.",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$",
+      "examples": ["com.company.review-api", "org.uscp.create-tests"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Short command name used after the slash (no spaces).",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "examples": ["review-api", "create-tests"]
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the command manifest.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "examples": ["1.0.0"]
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable title for display in tool UIs."
+    },
+    "description": {
+      "type": "string",
+      "description": "One-sentence description of what the command does."
+    },
+    "aliases": {
+      "type": "array",
+      "description": "Alternative names that invoke this command.",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+      "uniqueItems": true
+    },
+    "examples": {
+      "type": "array",
+      "description": "Example invocations shown in help text.",
+      "items": { "type": "string" }
+    },
+    "compatibility": {
+      "type": "object",
+      "description": "Host tool compatibility declarations.",
+      "additionalProperties": false,
+      "properties": {
+        "tools": {
+          "type": "array",
+          "description": "List of host tools this command is compatible with.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "claude-code",
+              "codex-cli",
+              "github-copilot",
+              "cursor",
+              "windsurf",
+              "kiro",
+              "augment",
+              "any-mcp"
+            ]
+          }
+        },
+        "requires": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mcp": {
+              "type": "string",
+              "description": "Minimum MCP version required (semver range).",
+              "examples": [">=2025-06-18"]
+            }
+          }
+        }
+      }
+    },
+    "arguments": {
+      "type": "object",
+      "description": "JSON Schema describing the command's argument surface.",
+      "required": ["type", "properties"],
+      "properties": {
+        "type": { "type": "string", "enum": ["object"] },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "properties": {
+          "type": "object",
+          "description": "Argument definitions. Each key is an argument name.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["type", "description"],
+            "properties": {
+              "type": { "type": "string" },
+              "description": { "type": "string" },
+              "enum": { "type": "array" },
+              "default": {},
+              "examples": { "type": "array" },
+              "pattern": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "description": "Context the host must supply before executing the command.",
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "array",
+          "description": "Context items the command cannot run without.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "repository",
+              "git_diff",
+              "open_files",
+              "diagnostics",
+              "test_results",
+              "project_instructions",
+              "architecture_docs",
+              "pr_description",
+              "branch_name"
+            ]
+          }
+        },
+        "optional": {
+          "type": "array",
+          "description": "Context items that enhance the command when available.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "description": "Least-privilege permission declarations for this command.",
+      "additionalProperties": false,
+      "properties": {
+        "filesystem": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "read": {
+              "type": "array",
+              "description": "Glob patterns the command is allowed to read.",
+              "items": { "type": "string" }
+            },
+            "write": {
+              "type": "array",
+              "description": "Glob patterns the command is allowed to write.",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "shell": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowed": {
+              "type": "array",
+              "description": "Shell commands that may be executed.",
+              "items": { "type": "string" }
+            },
+            "denied": {
+              "type": "array",
+              "description": "Shell commands that must be blocked.",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowed": {
+              "type": "boolean",
+              "description": "Whether the command may make outbound network requests."
+            }
+          }
+        },
+        "secrets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "access": {
+              "type": "boolean",
+              "description": "Whether the command may access secrets/credentials."
+            }
+          }
+        },
+        "tools": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowed": {
+              "type": "array",
+              "description": "MCP tool IDs the command may invoke.",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "description": "Host capabilities the command requires or can optionally use.",
+      "additionalProperties": false,
+      "properties": {
+        "needs": {
+          "type": "array",
+          "description": "Universal capabilities the host must provide.",
+          "items": { "type": "string" }
+        },
+        "optional": {
+          "type": "array",
+          "description": "Universal capabilities that improve the command when present.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "description": "Execution safety policy for this command.",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "description": "Autonomy level of the command.",
+          "enum": ["analyze-only", "propose-patch", "apply-patch", "autonomous"]
+        },
+        "autonomy": {
+          "type": "string",
+          "enum": ["bounded", "supervised", "autonomous"]
+        },
+        "requires_confirmation_for": {
+          "type": "array",
+          "description": "Action types that require explicit user confirmation.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "file_write",
+              "file_delete",
+              "shell_command",
+              "dependency_install",
+              "network_request",
+              "secret_access"
+            ]
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "description": "Ordered workflow steps the agent executes.",
+      "required": ["steps"],
+      "additionalProperties": false,
+      "properties": {
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "instruction"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Unique identifier for this step.",
+                "pattern": "^[a-z][a-z0-9_-]*$"
+              },
+              "instruction": {
+                "type": "string",
+                "description": "Natural-language instruction for the agent."
+              },
+              "condition": {
+                "type": "string",
+                "description": "Optional condition expression; step is skipped when false."
+              }
+            }
+          }
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "description": "Contract describing what the command produces.",
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": ["markdown", "json", "text", "diff"]
+        },
+        "sections": {
+          "type": "array",
+          "description": "Expected markdown sections in the human-readable output.",
+          "items": { "type": "string" }
+        },
+        "machine_readable": {
+          "type": "object",
+          "description": "JSON Schema describing the structured output object.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "mcp": {
+      "type": "object",
+      "description": "MCP integration — how the command maps to MCP primitives.",
+      "additionalProperties": false,
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "MCP prompt ID that backs this command."
+        },
+        "resources": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tools": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "policies": {
+      "type": "object",
+      "description": "References to org-level policy files.",
+      "additionalProperties": { "type": "string" }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "events": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "lifecycle_hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pre_execute": { "type": "string" },
+        "post_execute": { "type": "string" },
+        "on_error": { "type": "string" }
+      }
+    }
+  }
+}

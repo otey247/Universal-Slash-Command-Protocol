@@ -10,7 +10,6 @@ import sys
 from typing import Optional
 
 import click
-import yaml
 from rich.console import Console
 from rich.table import Table
 
@@ -21,6 +20,12 @@ from uscp.registry import CommandRegistry
 
 console = Console()
 err_console = Console(stderr=True)
+
+
+def _print_registry_errors(registry: CommandRegistry) -> None:
+    """Print non-fatal registry discovery errors."""
+    for error in registry.errors:
+        err_console.print(f"[yellow]Warning:[/yellow] {error}")
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +105,7 @@ def list_cmd(root: str) -> None:
     """List all discovered USCP commands in the current project."""
     registry = CommandRegistry(root)
     count = registry.discover()
+    _print_registry_errors(registry)
 
     if count == 0:
         console.print("[yellow]No commands found.[/yellow]")
@@ -160,6 +166,7 @@ def compile_cmd(target: str, output: str, root: str, names: tuple[str, ...]) -> 
     """
     registry = CommandRegistry(root)
     registry.discover()
+    _print_registry_errors(registry)
 
     manifests: list[dict] = []
     if names:
@@ -259,12 +266,19 @@ def show_cmd(name: str, root: str) -> None:
     """Show details of a specific USCP command."""
     registry = CommandRegistry(root)
     registry.discover()
+    _print_registry_errors(registry)
 
     # Strip leading slash if the user typed /command-name
     name = name.lstrip("/")
     manifest = registry.resolve(name)
     if manifest is None:
         err_console.print(f"[red]Command not found:[/red] {name}")
+        sys.exit(1)
+    validation_errors = val.validate(manifest)
+    if validation_errors:
+        err_console.print(f"[red]Command manifest is invalid:[/red] {name}")
+        for error in validation_errors:
+            err_console.print(f"  [red]•[/red] {error}")
         sys.exit(1)
 
     console.print(f"\n[bold cyan]/{manifest['name']}[/bold cyan]  v{manifest.get('version', '?')}")
@@ -294,7 +308,7 @@ def show_cmd(name: str, root: str) -> None:
     if steps:
         console.print("\n[bold]Workflow Steps[/bold]")
         for i, step in enumerate(steps, 1):
-            console.print(f"  [dim]{i}.[/dim] [yellow]{step['id']}[/yellow]")
+            console.print(f"  [dim]{i}.[/dim] [yellow]{step.get('id', '<missing id>')}[/yellow]")
 
     # Examples
     examples = manifest.get("examples", [])

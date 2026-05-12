@@ -4,22 +4,12 @@ from __future__ import annotations
 
 import pathlib
 import shutil
-import tempfile
 
 import pytest
-import yaml
 
 from uscp.registry import CommandRegistry
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
-
-
-def _write_temp_manifest(directory: pathlib.Path, name: str, content: dict) -> pathlib.Path:
-    path = directory / f"{name}.yaml"
-    with path.open("w", encoding="utf-8") as fh:
-        yaml.dump(content, fh)
-    return path
-
 
 @pytest.fixture()
 def temp_project(tmp_path):
@@ -98,3 +88,26 @@ class TestCommandRegistry:
         registry = CommandRegistry(repo_root)
         count = registry.discover()
         assert count >= 5  # review-api, create-tests, write-adr, threat-model, prepare-pr
+
+    def test_discover_includes_cursor_rules_path(self, tmp_path):
+        rules_dir = tmp_path / ".cursor" / "rules"
+        rules_dir.mkdir(parents=True)
+        shutil.copy(FIXTURES / "valid_command.yaml", rules_dir / "valid_command.yaml")
+
+        registry = CommandRegistry(tmp_path)
+        count = registry.discover()
+
+        assert count == 1
+        assert registry.get("test-command") is not None
+
+    def test_discover_collects_yaml_errors(self, tmp_path):
+        cmd_dir = tmp_path / ".agent" / "commands"
+        cmd_dir.mkdir(parents=True)
+        (cmd_dir / "broken.yaml").write_text("name: [unterminated\n", encoding="utf-8")
+
+        registry = CommandRegistry(tmp_path)
+        count = registry.discover()
+
+        assert count == 0
+        assert registry.errors
+        assert "broken.yaml" in registry.errors[0]

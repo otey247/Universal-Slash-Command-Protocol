@@ -21,7 +21,7 @@ Examples:
 Mirror the source structure under `tests/`:
 - `src/uscp/validator.py` → `tests/test_validator.py`
 - `src/uscp/compiler.py` → `tests/test_compiler.py`
-- `src/uscp/adapters/claude_code.py` → `tests/adapters/test_claude_code.py`
+- `src/uscp/adapters/*.py` → `tests/adapters/test_adapters.py` (combined adapter coverage)
 
 ## Required Coverage
 

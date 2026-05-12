@@ -6,20 +6,17 @@ Loads and validates USCP command manifests against the JSON Schema.
 from __future__ import annotations
 
 import json
+from importlib import resources
 import pathlib
 from typing import Any
 
 import jsonschema
 import yaml
 
-# Path to the bundled schema file, relative to this package.
-_SCHEMA_PATH = pathlib.Path(__file__).parent.parent.parent / "schemas" / "command.v1.json"
-
-
 def _load_schema() -> dict[str, Any]:
     """Load the bundled USCP JSON Schema."""
-    with _SCHEMA_PATH.open(encoding="utf-8") as fh:
-        return json.load(fh)
+    schema_path = resources.files("uscp").joinpath("schemas", "command.v1.json")
+    return json.loads(schema_path.read_text(encoding="utf-8"))
 
 
 def load_manifest(path: str | pathlib.Path) -> dict[str, Any]:
@@ -46,10 +43,15 @@ def load_manifest(path: str | pathlib.Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"Manifest not found: {path}")
     with path.open(encoding="utf-8") as fh:
-        return yaml.safe_load(fh)
+        manifest = yaml.safe_load(fh)
+    if manifest is None:
+        return {}
+    if not isinstance(manifest, dict):
+        raise TypeError(f"Manifest must be a YAML mapping/object: {path}")
+    return manifest
 
 
-def validate(manifest: dict[str, Any]) -> list[str]:
+def validate(manifest: Any) -> list[str]:
     """Validate *manifest* against the USCP JSON Schema.
 
     Parameters
@@ -63,6 +65,8 @@ def validate(manifest: dict[str, Any]) -> list[str]:
         A list of human-readable validation error messages. An empty list means
         the manifest is valid.
     """
+    if not isinstance(manifest, dict):
+        return ["[root] Manifest must be a mapping/object."]
     schema = _load_schema()
     validator = jsonschema.Draft7Validator(schema)
     errors = sorted(validator.iter_errors(manifest), key=lambda e: list(e.path))
@@ -82,7 +86,10 @@ def validate_file(path: str | pathlib.Path) -> list[str]:
     list[str]
         Validation error messages (empty = valid).
     """
-    manifest = load_manifest(path)
+    try:
+        manifest = load_manifest(path)
+    except TypeError as exc:
+        return [f"[root] {exc}"]
     return validate(manifest)
 
 

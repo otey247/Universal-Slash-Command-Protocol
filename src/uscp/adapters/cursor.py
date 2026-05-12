@@ -6,6 +6,8 @@ Cursor reads custom instructions from `.cursorrules` or `.cursor/rules/<name>.md
 
 from __future__ import annotations
 
+import yaml
+
 from uscp.adapters.base import BaseAdapter
 
 
@@ -21,8 +23,6 @@ class CursorAdapter(BaseAdapter):
         lines: list[str] = []
 
         # Cursor MDC front-matter
-        lines.append("---")
-        lines.append(f"description: {self.description}")
         globs: list[str] = []
         read_paths = self._manifest.get("permissions", {}).get("filesystem", {}).get("read", [])
         if read_paths:
@@ -30,10 +30,15 @@ class CursorAdapter(BaseAdapter):
             for p in read_paths:
                 if not p.startswith("${"):
                     globs.append(p)
-        if globs:
-            lines.append(f'globs: [{", ".join(globs)}]')
         mode = self._manifest.get("execution", {}).get("mode", "analyze-only")
-        lines.append(f"alwaysApply: false")
+        front_matter: dict[str, object] = {
+            "description": self.description,
+            "alwaysApply": False,
+        }
+        if globs:
+            front_matter["globs"] = globs
+        lines.append("---")
+        lines.append(yaml.safe_dump(front_matter, sort_keys=False, allow_unicode=True).strip())
         lines.append("---")
         lines.append("")
 

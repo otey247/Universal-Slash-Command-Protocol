@@ -5,6 +5,7 @@ from __future__ import annotations
 import pathlib
 
 import pytest
+import yaml
 
 from uscp import validator as val
 from uscp.adapters.claude_code import ClaudeCodeAdapter
@@ -91,6 +92,16 @@ class TestVSCodeCopilotAdapter:
         rendered = VSCodeCopilotAdapter(valid_manifest).render()
         assert "## Output Structure" in rendered
 
+    def test_render_front_matter_is_valid_yaml(self, valid_manifest):
+        valid_manifest["description"] = 'Quotes: "double", colon: value\nSecond line'
+
+        rendered = VSCodeCopilotAdapter(valid_manifest).render()
+        front_matter = rendered.split("---", maxsplit=2)[1]
+        metadata = yaml.safe_load(front_matter)
+
+        assert metadata["description"] == valid_manifest["description"]
+        assert metadata["mode"] == "agent"
+
 
 class TestCursorAdapter:
     def test_render_starts_with_front_matter(self, valid_manifest):
@@ -111,3 +122,14 @@ class TestCursorAdapter:
 
     def test_output_filename_ends_with_mdc(self, valid_manifest):
         assert CursorAdapter(valid_manifest).output_filename().endswith(".mdc")
+
+    def test_render_front_matter_quotes_yaml_sensitive_globs(self, valid_manifest):
+        valid_manifest["permissions"]["filesystem"]["read"] = ["**/*.py", "docs/**"]
+        valid_manifest["description"] = "Description: with colon"
+
+        rendered = CursorAdapter(valid_manifest).render()
+        front_matter = rendered.split("---", maxsplit=2)[1]
+        metadata = yaml.safe_load(front_matter)
+
+        assert metadata["description"] == valid_manifest["description"]
+        assert metadata["globs"] == ["**/*.py", "docs/**"]

@@ -7,6 +7,8 @@ or `.copilot/prompts/<name>.prompt.md`.
 
 from __future__ import annotations
 
+import yaml
+
 from uscp.adapters.base import BaseAdapter
 
 
@@ -22,11 +24,10 @@ class VSCodeCopilotAdapter(BaseAdapter):
         lines: list[str] = []
 
         # VS Code prompt files support YAML front-matter for metadata
-        lines.append("---")
-        lines.append(f'description: "{self.description}"')
-        # VS Code Copilot prompt files always use mode: "agent" for agentic execution
-        lines.append('mode: "agent"')
-        # Map USCP execution modes to Copilot tool settings
+        front_matter: dict[str, object] = {
+            "description": self.description,
+            "mode": "agent",
+        }
         tools: list[str] = []
         allowed_tools = self._manifest.get("permissions", {}).get("tools", {}).get("allowed", [])
         for t in allowed_tools:
@@ -34,7 +35,9 @@ class VSCodeCopilotAdapter(BaseAdapter):
             copilot_tool = t.replace("mcp.", "").replace(".", "_")
             tools.append(copilot_tool)
         if tools:
-            lines.append(f"tools: [{', '.join(tools)}]")
+            front_matter["tools"] = tools
+        lines.append("---")
+        lines.append(yaml.safe_dump(front_matter, sort_keys=False, allow_unicode=True).strip())
         lines.append("---")
         lines.append("")
 

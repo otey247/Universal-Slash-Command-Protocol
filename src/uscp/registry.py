@@ -13,6 +13,7 @@ DISCOVERY_PATHS: list[str] = [
     ".github/commands",
     ".claude/commands",
     ".codex/commands",
+    ".cursor/rules",
     ".cursor/commands",
 ]
 
@@ -24,6 +25,7 @@ class CommandRegistry:
         self._root = pathlib.Path(root).resolve()
         self._commands: dict[str, dict[str, Any]] = {}
         self._paths: dict[str, pathlib.Path] = {}
+        self._errors: list[str] = []
 
     # ------------------------------------------------------------------
     # Public API
@@ -42,6 +44,9 @@ class CommandRegistry:
         int
             Number of manifests discovered.
         """
+        self._commands.clear()
+        self._paths.clear()
+        self._errors.clear()
         paths = search_paths or DISCOVERY_PATHS
         found = 0
         for rel in paths:
@@ -57,8 +62,8 @@ class CommandRegistry:
                     self._commands[name] = manifest
                     self._paths[name] = yaml_file
                     found += 1
-                except Exception:  # noqa: BLE001
-                    pass
+                except (OSError, TypeError, yaml.YAMLError) as exc:
+                    self._errors.append(f"{yaml_file}: {exc}")
         return found
 
     def get(self, name: str) -> dict[str, Any] | None:
@@ -100,7 +105,15 @@ class CommandRegistry:
         """Number of discovered commands."""
         return len(self._commands)
 
+    @property
+    def errors(self) -> list[str]:
+        """Non-fatal discovery errors encountered while scanning command files."""
+        return list(self._errors)
+
 
 def _load_yaml(path: pathlib.Path) -> dict[str, Any]:
     with path.open(encoding="utf-8") as fh:
-        return yaml.safe_load(fh) or {}
+        manifest = yaml.safe_load(fh) or {}
+    if not isinstance(manifest, dict):
+        raise TypeError("Command file must contain a YAML mapping/object")
+    return manifest
