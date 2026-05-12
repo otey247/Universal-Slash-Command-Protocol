@@ -1,0 +1,161 @@
+schema: "https://universal-slash.dev/schemas/command.v1.json"
+id: "org.uscp.prepare-pr"
+name: "prepare-pr"
+version: "1.0.0"
+
+title: "Prepare Pull Request"
+description: "Generates a comprehensive PR description, changelog entry, and pre-merge checklist from git diff."
+
+aliases:
+  - "pr"
+  - "create-pr"
+  - "summarize-pr"
+
+examples:
+  - "/prepare-pr"
+  - "/prepare-pr --type feature --breaking false"
+  - "/prepare-pr --type fix --ticket PROJ-1234"
+
+compatibility:
+  tools:
+    - claude-code
+    - codex-cli
+    - github-copilot
+    - cursor
+    - windsurf
+    - kiro
+    - any-mcp
+
+arguments:
+  type: object
+  required: []
+  properties:
+    type:
+      type: string
+      enum: ["feature", "fix", "refactor", "docs", "chore", "security", "performance"]
+      description: "Type of change being made. Auto-detected from diff if omitted."
+    ticket:
+      type: string
+      description: "Issue/ticket reference to include in the PR description."
+      examples:
+        - "PROJ-1234"
+        - "GH-42"
+    breaking:
+      type: string
+      enum: ["true", "false", "auto"]
+      default: "auto"
+      description: "Whether this PR contains breaking changes. 'auto' detects from diff."
+    template:
+      type: string
+      enum: ["standard", "security", "hotfix"]
+      default: "standard"
+      description: "PR description template to use."
+
+context:
+  required:
+    - repository
+    - git_diff
+  optional:
+    - branch_name
+    - open_files
+    - project_instructions
+    - test_results
+
+permissions:
+  filesystem:
+    read:
+      - ".github/pull_request_template.md"
+      - "CHANGELOG.md"
+      - "README.md"
+      - "docs/**"
+    write:
+      - "CHANGELOG.md"
+  shell:
+    allowed:
+      - "git log"
+      - "git diff"
+      - "git status"
+    denied:
+      - "rm"
+      - "curl"
+      - "ssh"
+  network:
+    allowed: false
+  secrets:
+    access: false
+
+capabilities:
+  needs:
+    - "filesystem.read"
+    - "git.diff"
+  optional:
+    - "git.log"
+    - "tests.run"
+    - "filesystem.write"
+
+execution:
+  mode: "propose-patch"
+  autonomy: "supervised"
+  requires_confirmation_for:
+    - file_write
+  timeout_seconds: 120
+
+workflow:
+  steps:
+    - id: "diff-analysis"
+      instruction: >
+        Analyze the git diff (from context) to understand: which files changed, what was
+        added/removed/modified, the scope of changes (component names, layers), whether
+        there are any breaking changes (API signature changes, schema migrations,
+        removed exports, changed config keys).
+    - id: "classify"
+      instruction: >
+        If the type argument was not provided, classify the change type (feature, fix,
+        refactor, docs, chore, security, performance) based on the diff content.
+        Detect breaking changes if breaking='auto'.
+    - id: "write-description"
+      instruction: >
+        Write a clear, comprehensive PR description using the requested template. Include:
+        Summary (what changed and why), Motivation (problem being solved), Changes Made
+        (bulleted file-by-file or logical groupings), Testing (what was tested),
+        Breaking Changes section if applicable, and any ticket/issue reference.
+    - id: "checklist"
+      instruction: >
+        Generate a pre-merge checklist appropriate for the change type. Include items for:
+        tests passing, docs updated, breaking changes communicated, security review if
+        needed, performance impact assessed.
+    - id: "changelog"
+      instruction: >
+        Draft a CHANGELOG.md entry following Keep a Changelog format. Place it in the
+        appropriate Unreleased section. Propose the update but do not write it without
+        confirmation unless the execution mode permits direct file writes.
+
+output:
+  format: "markdown"
+  sections:
+    - "PR Description"
+    - "Pre-Merge Checklist"
+    - "Changelog Entry"
+  machine_readable:
+    type: object
+    properties:
+      change_type:
+        type: string
+      breaking:
+        type: boolean
+      ticket:
+        type: string
+      pr_title:
+        type: string
+      changelog_entry:
+        type: string
+
+mcp:
+  prompt: "org.uscp.prepare-pr"
+  resources:
+    - "repo://current"
+    - "git://diff"
+    - "git://log"
+  tools:
+    - "filesystem.read"
+    - "git.diff"

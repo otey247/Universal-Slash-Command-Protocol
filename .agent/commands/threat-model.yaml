@@ -1,0 +1,171 @@
+schema: "https://universal-slash.dev/schemas/command.v1.json"
+id: "org.uscp.threat-model"
+name: "threat-model"
+version: "1.0.0"
+
+title: "Threat Model"
+description: "Performs a structured threat-modeling analysis (STRIDE) on a target component or system."
+
+aliases:
+  - "threatmodel"
+  - "security-model"
+
+examples:
+  - "/threat-model apps/backend"
+  - "/threat-model apps/backend --auth oauth2 --output markdown"
+  - "/threat-model src/payment --scope data-flow"
+
+compatibility:
+  tools:
+    - claude-code
+    - codex-cli
+    - github-copilot
+    - cursor
+    - windsurf
+    - kiro
+    - any-mcp
+
+arguments:
+  type: object
+  required:
+    - scope
+  properties:
+    scope:
+      type: string
+      description: "File, folder, or component to threat-model."
+      examples:
+        - "apps/backend"
+        - "src/payment"
+    auth:
+      type: string
+      description: "Authentication mechanism in use (informs threat surface)."
+      examples:
+        - "oauth2"
+        - "jwt"
+        - "api-key"
+        - "session"
+    analysis:
+      type: string
+      enum: ["stride", "pasta", "linddun"]
+      default: "stride"
+      description: "Threat modeling methodology to apply."
+    output:
+      type: string
+      enum: ["markdown", "issues", "json"]
+      default: "markdown"
+      description: "Output format."
+
+context:
+  required:
+    - repository
+  optional:
+    - architecture_docs
+    - open_files
+    - git_diff
+    - project_instructions
+
+permissions:
+  filesystem:
+    read:
+      - "${args.scope}"
+      - "docs/**"
+      - "README.md"
+      - "openapi.yaml"
+      - "openapi.json"
+      - ".env.example"
+    write: []
+  shell:
+    allowed: []
+    denied:
+      - "rm"
+      - "curl"
+      - "ssh"
+  network:
+    allowed: false
+  secrets:
+    access: false
+  tools:
+    allowed:
+      - "mcp.filesystem.read"
+
+capabilities:
+  needs:
+    - "filesystem.read"
+  optional:
+    - "diagnostics.read"
+    - "mcp.tool.invoke"
+
+execution:
+  mode: "analyze-only"
+  autonomy: "bounded"
+  requires_confirmation_for:
+    - file_write
+    - shell_command
+  timeout_seconds: 360
+
+workflow:
+  steps:
+    - id: "map-assets"
+      instruction: >
+        Identify the key assets (data, services, credentials, infrastructure) within the
+        target scope. Map data flows: entry points, trust boundaries, and external dependencies.
+    - id: "enumerate-threats"
+      instruction: >
+        Apply the selected threat modeling methodology (default: STRIDE).
+        For STRIDE, systematically enumerate threats across:
+        Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service,
+        Elevation of Privilege. Consider the auth mechanism if provided.
+    - id: "assess-risk"
+      instruction: >
+        For each identified threat, assess likelihood (Low/Medium/High) and impact (Low/Medium/High).
+        Calculate a risk score (DREAD or simple matrix). Prioritize by combined risk.
+    - id: "recommend-controls"
+      instruction: >
+        For each high and critical risk, recommend specific mitigating controls with
+        implementation guidance. Reference OWASP, NIST, or CWE where appropriate.
+    - id: "summarize"
+      instruction: >
+        Produce a concise executive summary of the threat landscape, top three risks,
+        and the recommended priority action list.
+
+output:
+  format: "markdown"
+  sections:
+    - "Executive Summary"
+    - "Asset Map"
+    - "Trust Boundary Diagram"
+    - "Threat Enumeration"
+    - "Risk Matrix"
+    - "Recommended Controls"
+    - "Priority Action List"
+  machine_readable:
+    type: object
+    properties:
+      threats:
+        type: array
+        items:
+          type: object
+          properties:
+            id:
+              type: string
+            category:
+              type: string
+            description:
+              type: string
+            likelihood:
+              type: string
+            impact:
+              type: string
+            risk_level:
+              type: string
+            controls:
+              type: array
+              items:
+                type: string
+
+mcp:
+  prompt: "org.uscp.threat-model"
+  resources:
+    - "repo://current"
+  tools:
+    - "filesystem.read"

@@ -1,0 +1,55 @@
+# USCP Organization Permissions Policy
+# Applied as a baseline to all commands in this repository.
+# Individual command manifests may declare more restrictive permissions.
+
+version: "1.0.0"
+
+filesystem:
+  # Directories always readable by any command
+  always_readable:
+    - "README.md"
+    - "docs/**"
+    - ".agent/context/**"
+  # Directories never writable without explicit command declaration
+  write_requires_explicit_declaration: true
+  # Absolute deny list — no command may write to these paths
+  never_writable:
+    - ".github/**"
+    - ".git/**"
+    - "*.lock"
+    - "*.pem"
+    - "*.key"
+    - "*.env"
+
+shell:
+  # Commands never executable by any USCP command
+  global_deny:
+    - "rm -rf"
+    - "curl"
+    - "wget"
+    - "ssh"
+    - "scp"
+    - "nc"
+    - "ncat"
+    - "python -c"
+    - "node -e"
+    - "eval"
+    - "exec"
+    - "base64 -d"
+
+network:
+  # Default: no network access
+  default_allowed: false
+
+secrets:
+  # Default: no secrets access
+  default_access: false
+
+autonomy:
+  # Maximum permitted autonomy level (can be lowered per command, not raised)
+  max_level: "supervised"
+  # Actions that always require human confirmation regardless of command settings
+  always_confirm:
+    - "dependency_install"
+    - "secret_access"
+    - "network_request"

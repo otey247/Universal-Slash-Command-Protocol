@@ -1,0 +1,44 @@
+schema: "https://universal-slash.dev/schemas/command.v1.json"
+id: "org.uscp.test-command"
+name: "test-command"
+version: "1.0.0"
+title: "Test Command"
+description: "A minimal valid command used in tests."
+
+arguments:
+  type: object
+  required:
+    - scope
+  properties:
+    scope:
+      type: string
+      description: "Target scope."
+
+context:
+  required:
+    - repository
+  optional:
+    - open_files
+
+permissions:
+  filesystem:
+    read:
+      - "${args.scope}"
+    write: []
+  shell:
+    allowed: []
+  network:
+    allowed: false
+
+workflow:
+  steps:
+    - id: "analyze"
+      instruction: "Analyze the target scope."
+    - id: "report"
+      instruction: "Produce a summary report."
+
+output:
+  format: "markdown"
+  sections:
+    - "Summary"
+    - "Findings"

@@ -1,0 +1,168 @@
+schema: "https://universal-slash.dev/schemas/command.v1.json"
+id: "org.uscp.review-api"
+name: "review-api"
+version: "1.0.0"
+
+title: "Review API Implementation"
+description: "Reviews API code for correctness, security, observability, and contract alignment."
+
+aliases:
+  - "api-review"
+  - "review-endpoints"
+
+examples:
+  - "/review-api src/api --risk high"
+  - "/review-api apps/backend/**/*.py --risk medium --output issues"
+  - "/review-api src/api --output patch-plan"
+
+compatibility:
+  tools:
+    - claude-code
+    - codex-cli
+    - github-copilot
+    - cursor
+    - windsurf
+    - kiro
+    - any-mcp
+  requires:
+    mcp: ">=2025-06-18"
+
+arguments:
+  type: object
+  required:
+    - scope
+  properties:
+    scope:
+      type: string
+      description: "File, folder, or glob pattern to review."
+      examples:
+        - "src/api"
+        - "apps/backend/**/*.py"
+    risk:
+      type: string
+      enum: ["low", "medium", "high"]
+      default: "medium"
+      description: "Risk tolerance level — higher risk triggers stricter analysis."
+    output:
+      type: string
+      enum: ["markdown", "issues", "patch-plan"]
+      default: "markdown"
+      description: "Output format for the review results."
+
+context:
+  required:
+    - repository
+    - git_diff
+  optional:
+    - open_files
+    - diagnostics
+    - test_results
+    - project_instructions
+    - architecture_docs
+
+permissions:
+  filesystem:
+    read:
+      - "${args.scope}"
+      - "README.md"
+      - "docs/**"
+      - "openapi.yaml"
+      - "openapi.json"
+    write: []
+  shell:
+    allowed: []
+    denied:
+      - "rm"
+      - "curl"
+      - "wget"
+      - "ssh"
+  network:
+    allowed: false
+  secrets:
+    access: false
+  tools:
+    allowed:
+      - "mcp.filesystem.read"
+      - "mcp.git.diff"
+      - "mcp.tests.read_results"
+
+capabilities:
+  needs:
+    - "filesystem.read"
+    - "git.diff"
+  optional:
+    - "diagnostics.read"
+    - "tests.run"
+    - "mcp.tool.invoke"
+
+execution:
+  mode: "analyze-only"
+  autonomy: "bounded"
+  requires_confirmation_for:
+    - file_write
+    - shell_command
+    - dependency_install
+  timeout_seconds: 300
+
+workflow:
+  steps:
+    - id: "discover"
+      instruction: >
+        Inspect the target files identified by the scope argument. Identify the API framework
+        (e.g., FastAPI, Express, Django REST, Spring), routing style, validation patterns,
+        authentication/authorization patterns, and existing test coverage.
+    - id: "analyze"
+      instruction: >
+        Review the API implementation for: correctness (logic errors, edge cases),
+        security (injection, broken auth, OWASP Top 10), contract drift (request/response
+        schema mismatches), error handling (missing status codes, unhandled exceptions),
+        logging and observability gaps, test gaps, and maintainability issues.
+        Apply stricter security checks when risk is 'high'.
+    - id: "rank"
+      instruction: >
+        Rank every finding by severity (critical, high, medium, low). For each finding,
+        explain the potential business or production impact in concrete terms.
+    - id: "recommend"
+      instruction: >
+        Provide a concrete, prioritized remediation plan. Reference specific files and line
+        numbers where possible. Do not modify any files — this command runs in analyze-only mode.
+
+output:
+  format: "markdown"
+  sections:
+    - "Executive Summary"
+    - "Critical Findings"
+    - "High Findings"
+    - "Medium Findings"
+    - "Low Findings"
+    - "Test Gaps"
+    - "Recommended Fix Plan"
+  machine_readable:
+    type: object
+    properties:
+      findings:
+        type: array
+        items:
+          type: object
+          properties:
+            severity:
+              type: string
+              enum: ["critical", "high", "medium", "low"]
+            file:
+              type: string
+            line:
+              type: integer
+            issue:
+              type: string
+            recommendation:
+              type: string
+
+mcp:
+  prompt: "org.uscp.review-api"
+  resources:
+    - "repo://current"
+    - "git://diff"
+  tools:
+    - "filesystem.read"
+    - "git.diff"
+    - "test.results"

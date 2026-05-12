@@ -1,0 +1,6 @@
+# Missing required fields: arguments, context, permissions, workflow, output
+schema: "https://universal-slash.dev/schemas/command.v1.json"
+id: "org.uscp.bad-command"
+name: "bad-command"
+version: "1.0.0"
+description: "A command with missing required fields."
