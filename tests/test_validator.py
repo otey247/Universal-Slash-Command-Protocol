@@ -19,7 +19,7 @@ class TestLoadManifest:
 
     def test_load_nonexistent_raises_file_not_found(self):
         with pytest.raises(FileNotFoundError):
-            val.load_manifest("/nonexistent/path/command.yaml")
+            val.load_manifest(pathlib.Path("/nonexistent/path/command.yaml"))
 
     def test_load_full_command_yaml(self):
         manifest = val.load_manifest(FIXTURES / "full_command.yaml")

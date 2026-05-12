@@ -24,8 +24,8 @@ class VSCodeCopilotAdapter(BaseAdapter):
         # VS Code prompt files support YAML front-matter for metadata
         lines.append("---")
         lines.append(f'description: "{self.description}"')
-        mode = self._manifest.get("execution", {}).get("mode", "analyze-only")
-        lines.append(f'mode: "agent"')
+        # VS Code Copilot prompt files always use mode: "agent" for agentic execution
+        lines.append('mode: "agent"')
         # Map USCP execution modes to Copilot tool settings
         tools: list[str] = []
         allowed_tools = self._manifest.get("permissions", {}).get("tools", {}).get("allowed", [])
